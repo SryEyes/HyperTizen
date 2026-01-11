@@ -9,7 +9,7 @@ version:
 #  Default profile
 profile: tv-samsung
 #  Tizen API version
-api_version: 6.5
+api_version: 6.0
 #  Path of profiles.xml, containing the signing profiles 
  # If value is empty, the profiles.xml in the data_path specified in tizen-studio/tools/tizen-core/config.yaml will be used
 profiles_xml_path: C:/tizen-studio-data/profile/profiles.xml

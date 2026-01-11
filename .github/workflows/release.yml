@@ -1,0 +1,180 @@
+name: Build and Release TPK
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version number (e.g., 1.0.0)'
+        required: true
+        default: '1.0.0'
+
+env:
+  TIZEN_STUDIO_VERSION: '5.5'
+  DOTNET_VERSION: '6.0.x'
+
+jobs:
+  build-and-release:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: ${{ env.DOTNET_VERSION }}
+
+    - name: Setup Node.js (for web build tools)
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+
+    - name: Install Tizen Studio CLI
+      run: |
+        # Download Tizen Studio CLI
+        wget -q http://download.tizen.org/sdk/Installer/tizen-studio_${TIZEN_STUDIO_VERSION}/web-cli_Tizen_Studio_${TIZEN_STUDIO_VERSION}_ubuntu-64.bin
+        chmod +x web-cli_Tizen_Studio_${TIZEN_STUDIO_VERSION}_ubuntu-64.bin
+
+        # Install Tizen Studio
+        ./web-cli_Tizen_Studio_${TIZEN_STUDIO_VERSION}_ubuntu-64.bin --accept-license $HOME/tizen-studio
+
+        # Add to PATH
+        echo "$HOME/tizen-studio/tools/ide/bin" >> $GITHUB_PATH
+        echo "$HOME/tizen-studio/tools" >> $GITHUB_PATH
+
+        # Install required packages
+        $HOME/tizen-studio/package-manager/package-manager-cli.bin install NativeCLI
+        $HOME/tizen-studio/package-manager/package-manager-cli.bin install NativeToolchain-Gcc-9.2
+        $HOME/tizen-studio/package-manager/package-manager-cli.bin install DOTNET-TCT
+        $HOME/tizen-studio/package-manager/package-manager-cli.bin install Certificate-Manager
+
+    - name: Create Tizen Certificate (if not exists)
+      run: |
+        mkdir -p $HOME/tizen-studio-data/keystore/author
+        mkdir -p $HOME/tizen-studio-data/profile
+
+        # Create a test certificate for signing
+        $HOME/tizen-studio/tools/ide/bin/tizen certificate \
+          -a HyperTizen \
+          -p tizen \
+          -c US \
+          -s CA \
+          -ct San \
+          -o GitHub \
+          -n HyperTizen \
+          -e github@hypertizen.io \
+          -f hypertizen
+
+        # Create security profile
+        $HOME/tizen-studio/tools/ide/bin/tizen security-profiles add \
+          -n HyperTizen \
+          -a $HOME/tizen-studio-data/keystore/author/hypertizen.p12 \
+          -p tizen
+
+        # Set as active profile
+        $HOME/tizen-studio/tools/ide/bin/tizen cli-config \
+          "default.profiles.path=$HOME/tizen-studio-data/profile/profiles.xml"
+        $HOME/tizen-studio/tools/ide/bin/tizen cli-config \
+          "profiles.active=HyperTizen"
+
+    - name: Get version from tag or input
+      id: version
+      run: |
+        if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+          echo "VERSION=${{ github.event.inputs.version }}" >> $GITHUB_OUTPUT
+        else
+          echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+        fi
+
+    - name: Update version in manifest
+      run: |
+        VERSION=${{ steps.version.outputs.VERSION }}
+        # Update tizen-manifest.xml version
+        sed -i "s/version=\"[^\"]*\"/version=\"$VERSION\"/" HyperTizen/tizen-manifest.xml
+        # Update config.xml version
+        sed -i "s/version=\"[^\"]*\"/version=\"$VERSION\"/" HyperTizenUI/config.xml
+
+    - name: Restore .NET dependencies
+      run: |
+        dotnet restore HyperTizen/HyperTizen.csproj
+
+    - name: Build HyperTizen Service (.NET)
+      run: |
+        cd HyperTizen
+        dotnet build HyperTizen.csproj \
+          -c Release \
+          -f tizen60 \
+          /p:TizenCreateTpk=false
+
+    - name: Package HyperTizen Service TPK
+      run: |
+        cd HyperTizen
+        $HOME/tizen-studio/tools/ide/bin/tizen package \
+          -t tpk \
+          -s HyperTizen \
+          -- bin/Release/tizen60
+
+    - name: Package HyperTizenUI Web TPK
+      run: |
+        cd HyperTizenUI
+        $HOME/tizen-studio/tools/ide/bin/tizen package \
+          -t wgt \
+          -s HyperTizen \
+          -- .
+
+    - name: Find TPK files
+      id: find_tpk
+      run: |
+        SERVICE_TPK=$(find HyperTizen -name "*.tpk" | head -1)
+        UI_WGT=$(find HyperTizenUI -name "*.wgt" | head -1)
+        echo "SERVICE_TPK=$SERVICE_TPK" >> $GITHUB_OUTPUT
+        echo "UI_WGT=$UI_WGT" >> $GITHUB_OUTPUT
+
+        # Rename for clarity
+        VERSION=${{ steps.version.outputs.VERSION }}
+        if [ -n "$SERVICE_TPK" ]; then
+          cp "$SERVICE_TPK" "HyperTizen-Service-v${VERSION}.tpk"
+        fi
+        if [ -n "$UI_WGT" ]; then
+          cp "$UI_WGT" "HyperTizenUI-v${VERSION}.wgt"
+        fi
+
+    - name: Create Release
+      uses: softprops/action-gh-release@v1
+      if: startsWith(github.ref, 'refs/tags/')
+      with:
+        files: |
+          HyperTizen-Service-v*.tpk
+          HyperTizenUI-v*.wgt
+        body: |
+          ## HyperTizen Release ${{ steps.version.outputs.VERSION }}
+
+          ### Installation
+          1. Install both packages on your Tizen 6.0+ TV
+          2. Launch HyperTizenUI to configure the service
+
+          ### Files
+          - `HyperTizen-Service-v*.tpk`: Backend service application
+          - `HyperTizenUI-v*.wgt`: Web UI application
+
+          ### Compatibility
+          - Tizen 6.0+
+          - Samsung Smart TV (2020+)
+        draft: false
+        prerelease: false
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Upload artifacts (manual workflow)
+      if: github.event_name == 'workflow_dispatch'
+      uses: actions/upload-artifact@v4
+      with:
+        name: hypertizen-tpk-v${{ steps.version.outputs.VERSION }}
+        path: |
+          HyperTizen-Service-v*.tpk
+          HyperTizenUI-v*.wgt
+        retention-days: 30

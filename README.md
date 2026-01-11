@@ -21,3 +21,43 @@ HyperTizen is a Hyperion / HyperHDR capturer for Tizen TVs.
 # Getting Started
 
 You can read the [guide](./docs/README.md) to get started with HyperTizen.
+
+## Compatibility
+
+- **Tizen 6.0+** (Samsung Smart TV 2020+)
+- Tizen 7.0+
+- Tizen 8.0+
+
+## Installation
+
+### Download Pre-built Packages
+
+Download the latest `.tpk` and `.wgt` files from the [Releases](../../releases) page.
+
+### Build from Source
+
+See [Release Guide](./docs/RELEASE.md) for instructions on building `.tpk` packages locally or via GitHub Actions.
+
+```bash
+# Quick build
+./build.sh 1.0.0
+```
+
+## Development
+
+### Creating a Release
+
+**Automatic Release (Recommended):**
+```bash
+git tag -a v1.0.0 -m "Release 1.0.0"
+git push origin v1.0.0
+```
+
+GitHub Actions will automatically build and create a release with `.tpk` files.
+
+**Manual Build:**
+```bash
+./build.sh 1.0.0
+```
+
+See the [Release Guide](./docs/RELEASE.md) for detailed instructions.
