@@ -1,8 +1,8 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
-<manifest package="io.gh.reisxd.HyperTizenTEST" version="1.0.0" api-version="6.5" xmlns="http://tizen.org/ns/packages">
+<manifest package="io.gh.reisxd.HyperTizenTEST" version="1.0.0" api-version="6.0" xmlns="http://tizen.org/ns/packages">
     <author>Reis Can</author>
     <profile name="tv" />
-    <service-application appid="io.gh.reisxd.HyperTizenTEST" exec="HyperTizen.dll" multiple="false" nodisplay="true" taskmanage="false" api-version="9" type="dotnet">
+    <service-application appid="io.gh.reisxd.HyperTizenTEST" exec="HyperTizen.dll" multiple="false" nodisplay="true" taskmanage="false" api-version="6" type="dotnet">
         <label>HyperTizen Service</label>
         <icon>HyperTizen.png</icon>
         <splash-screens />

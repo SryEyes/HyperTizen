@@ -3,7 +3,7 @@
   <!-- Property Group for .NET Core Project -->
   <PropertyGroup>
     <OutputType>Exe</OutputType>
-    <TargetFramework>tizen90</TargetFramework>
+    <TargetFramework>tizen60</TargetFramework>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
   </PropertyGroup>
 
@@ -24,7 +24,7 @@
     <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
     <PackageReference Include="Rssdp" Version="4.0.4" />
     <PackageReference Include="SkiaSharp" Version="2.88.9" />
-    <PackageReference Include="Tizen.NET.TV" Version="6.6.0.5599517" />
+    <PackageReference Include="Tizen.NET.TV" Version="6.0.0.14995" />
   </ItemGroup>
 
 </Project>
